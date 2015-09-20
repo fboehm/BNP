@@ -15,6 +15,7 @@ header-includes: \usepackage{amsmath}
 $$
 \newcommand{\E}{\mathbb{E}}
 \newcommand{\Dir}{\mbox{Dir}}
+\newcommand{\X}{\mathcal{X}}
 $$
 
 $$
@@ -23,9 +24,9 @@ $$
 \newcommand{\vertices}{\mathcal{V}}
 $$
 
+**This notes were taken from [Eric Sudderth's PhD thesis](http://cs.brown.edu/~sudderth/papers/sudderthPhD.pdf)** 
 
 # Basic stuff 
-
 ## Exponential families
 
 The first concept are exponential families, which are families with a known form 
@@ -302,11 +303,114 @@ $$
 \end{align}
 $$
 
+## Importance sampling
 
+The idea is to re-write the expectation above as:
 
+$$
+\E_p[f(x)] = \frac{\int_\mathcal{X} f(x)w(x)q(x)dx}{\int_\mathcal{X}w(x)q(x)dx},\quad
+w(x) = \frac{\bar{p}(x)}{q(x)}
+$$
 
+where $q(x)$ is a proposal distribution function which is absolutely continuous respect to $p(x)$.
 
+## Kernel density estimation
 
+The Parzen window density estimate is:
+
+$$
+\hat{p}(x) = \sum_{l= 1}^L w_l \mathcal{N}(z ; z_l , \Lambda)
+$$
+
+the weights are usually set as $w_l = \frac{1}{L}$ but we can consider more complicated sampling schemes. Clearly this estiamtor depends on the bandwidth $\Lambda$.
+
+## Gibbs sampling
+
+The idea here is to draw samples from an otherwise intractable target density $p(x)$, starting from some initial global configuration $x^{(0)}\in \X$, and the future states are determined via a first-order Markov process:
+
+$$
+x^{(t)} \sim q(x | x^{(t-1)}),\quad t=1,2,\cdots
+$$
+
+Te transition distribution $q(\cdot|\cdot)$ is designed to that the resulting Markov chain is irreducible and aperiodic, with $p(x)$ as it's unique equilibrium distribution
+
+The Gibbs samples, does at the iteration $t$, a particular variable $i(t)$ is select for resampling and the rest are held constant:
+
+$$
+\begin{align}
+x_i^{(t)}&\sim p(x_i|x_j^{(t-1)},j \neq i ),\quad i = i(t)\nonumber \\
+x_j^{(t)} &= x_j^{(t-1)},\quad j \neq i(t)\nonumber
+\end{align}
+$$
+
+For some models, Gibbs samplers are based on a joint distributioj $p(x,z)$ which is designed to marginalize to the target density $p(x)$. In the simplest casse, $z$ is choosen to make the following conditionals tractable:
+
+$$
+\begin{align}
+x^{(t)} &\sim p(x|z^{(t-1)}) \nonumber \\
+z^{(t)} &\sim p(z | x^{(t)})\nonumber
+\end{align}
+$$
+
+### Gibbs in finite mixtures
+
+Given mixture weights $\pi^{(t-1)}$ and cluster parameters $(\theta_k^{(t-1)})_{k=1}^K$ from the previous iteration, sample a new set of mixture parameters as:
+
+1.  Independently assign each of $x_i$ points to one of the $K$ clusters by sampling the indicator variables from the following multinomial distributions:
+
+$$
+z_i^{(t)} \sim \frac{1}{Z_i} \sum_{k=1}^K \pi_k^{(t-1)} f(x_i | \theta_k^{(t-1)})\delta(z_i,k),\quad Z_i = \sum_k \pi_k^{(t-1)}f(x_i|\theta_k^{(t-1)})
+$$
+
+2. Sample new mixture weights from the following Dirichlet distribution
+
+$$
+\pi^{(t)}\sim \Dir(N_1+\alpha / K,\cdots, N_K + \alpha /K),\quad K_k = \sum_{i=1}^N \delta(z_i^{(t)},k)
+$$
+
+3. For each of the $K$ clusters, independently sample from the conditional distribution implied by those observations currently assigned to that cluster
+
+$$
+\theta_k^{(t)} \sim p(\theta_k | \{ x_i|z_i^{(t)=k}  \}; \lambda)
+$$
+
+## Rao-Blackwellized sampling schemes
+
+The algorithm is based on Rao-Blackwell's theorem:
+
+$$
+\newcommand{\Var}{\mbox{Var}}
+$$
+
+_Theorem_ Let $x$ and $z$ be dependent random variables, and $f(x,z)$ a scalar statistic. Consider the marginalized statistic $\E_x[f(x,z)|z ]$ which is a function solely of $z$. The unconditional variance $\Var_{xz}[f(x,z)]$ is then related to the variance of the marginalized statistic as follows:
+
+$$
+\begin{align}
+\Var_{xz}[f(x,z)] &= \Var_z[\E[f(x,z)|z]] + \E_z[ \Var_x[f(x,z)|z]] \nonumber \\
+&\geq \Var_z [  \E_x [ f(x,z|z)]] \nonumber
+\end{align}
+$$
+
+Given previous cluster assignments $z^{(t-1)}$, sequntially sample new assignments as:
+
+1. Sample a random permutation $\ta(\cdot)$ of the integers $\{1,\cdots,N\}$
+
+2. Set $z= z^{(t-1)}$. For each $i\in \{\tau(1),\cdots,\tau(N)}$ sequntially resample $z_i$ as:
+  a) For each of the $K$ clusters, determine the predictive liklihood:
+  
+  $$
+  f_k(x_i) = p(x_i | \{x_j |z_j =k,j\neq i \}|\lambda)
+  $$
+  
+  b) Sample a new cluster assignment $z_i$ from the following multinomial distribution:
+  
+  $$
+  z_i \sim \frac{1}{Z_i} \sum_k (N_k^{-1} + \alpha / K)f_k(x_i)\delta(z_i,k),\quad Z_i = \sum_k (N_k^{-i} + \alpha / K)f_k(x_i)
+  $$
+  
+  c) Updated cached sufficient statistic to reflect the assignment of $x_i$ to cluster $z_i$
+
+3. Set $z^{(t)}=z$. Optionally, mixture parameters may be sampled via the previous algorithm.
 
 
 

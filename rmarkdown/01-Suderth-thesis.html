@@ -69,19 +69,26 @@ img {
 <li><a href="#variational-methods">Variational methods</a><ul>
 <li><a href="#the-em-algorithm">The EM algorithm</a></li>
 </ul></li>
-<li><a href="#monte-carlo-methods">Monte Carlo methods</a></li>
+<li><a href="#monte-carlo-methods">Monte Carlo methods</a><ul>
+<li><a href="#importance-sampling">Importance sampling</a></li>
+<li><a href="#kernel-density-estimation">Kernel density estimation</a></li>
+<li><a href="#gibbs-sampling">Gibbs sampling</a></li>
+<li><a href="#rao-blackwellized-sampling-schemes">Rao-Blackwellized sampling schemes</a></li>
+</ul></li>
 </ul>
 </div>
 
 <p><span class="math">\[
 \newcommand{\E}{\mathbb{E}}
 \newcommand{\Dir}{\mbox{Dir}}
+\newcommand{\X}{\mathcal{X}}
 \]</span></p>
 <p><span class="math">\[
 \newcommand{\graph}{\mathcal{G}}
 \newcommand{\edges}{\mathcal{E}}
 \newcommand{\vertices}{\mathcal{V}}
 \]</span></p>
+<p><strong>This notes were taken from <a href="http://cs.brown.edu/~sudderth/papers/sudderthPhD.pdf">Eric Sudderth’s PhD thesis</a></strong></p>
 <div id="basic-stuff" class="section level1">
 <h1>Basic stuff</h1>
 <div id="exponential-families" class="section level2">
@@ -289,6 +296,104 @@ q^{(t)} &amp;=\arg \max_q \mathcal{L}(q,\theta^{(t-1)}) \nonumber \\
 &amp;\approx \frac{1}{L} \sum_l f(x_l) = \E_\tilde{p}[f(x)] \nonumber
 \end{align}
 \]</span></p>
+<div id="importance-sampling" class="section level2">
+<h2>Importance sampling</h2>
+<p>The idea is to re-write the expectation above as:</p>
+<p><span class="math">\[
+\E_p[f(x)] = \frac{\int_\mathcal{X} f(x)w(x)q(x)dx}{\int_\mathcal{X}w(x)q(x)dx},\quad
+w(x) = \frac{\bar{p}(x)}{q(x)}
+\]</span></p>
+<p>where <span class="math">\(q(x)\)</span> is a proposal distribution function which is absolutely continuous respect to <span class="math">\(p(x)\)</span>.</p>
+</div>
+<div id="kernel-density-estimation" class="section level2">
+<h2>Kernel density estimation</h2>
+<p>The Parzen window density estimate is:</p>
+<p><span class="math">\[
+\hat{p}(x) = \sum_{l= 1}^L w_l \mathcal{N}(z ; z_l , \Lambda)
+\]</span></p>
+<p>the weights are usually set as <span class="math">\(w_l = \frac{1}{L}\)</span> but we can consider more complicated sampling schemes. Clearly this estiamtor depends on the bandwidth <span class="math">\(\Lambda\)</span>.</p>
+</div>
+<div id="gibbs-sampling" class="section level2">
+<h2>Gibbs sampling</h2>
+<p>The idea here is to draw samples from an otherwise intractable target density <span class="math">\(p(x)\)</span>, starting from some initial global configuration <span class="math">\(x^{(0)}\in \X\)</span>, and the future states are determined via a first-order Markov process:</p>
+<p><span class="math">\[
+x^{(t)} \sim q(x | x^{(t-1)}),\quad t=1,2,\cdots
+\]</span></p>
+<p>Te transition distribution <span class="math">\(q(\cdot|\cdot)\)</span> is designed to that the resulting Markov chain is irreducible and aperiodic, with <span class="math">\(p(x)\)</span> as it’s unique equilibrium distribution</p>
+<p>The Gibbs samples, does at the iteration <span class="math">\(t\)</span>, a particular variable <span class="math">\(i(t)\)</span> is select for resampling and the rest are held constant:</p>
+<p><span class="math">\[
+\begin{align}
+x_i^{(t)}&amp;\sim p(x_i|x_j^{(t-1)},j \neq i ),\quad i = i(t)\nonumber \\
+x_j^{(t)} &amp;= x_j^{(t-1)},\quad j \neq i(t)\nonumber
+\end{align}
+\]</span></p>
+<p>For some models, Gibbs samplers are based on a joint distributioj <span class="math">\(p(x,z)\)</span> which is designed to marginalize to the target density <span class="math">\(p(x)\)</span>. In the simplest casse, <span class="math">\(z\)</span> is choosen to make the following conditionals tractable:</p>
+<p><span class="math">\[
+\begin{align}
+x^{(t)} &amp;\sim p(x|z^{(t-1)}) \nonumber \\
+z^{(t)} &amp;\sim p(z | x^{(t)})\nonumber
+\end{align}
+\]</span></p>
+<div id="gibbs-in-finite-mixtures" class="section level3">
+<h3>Gibbs in finite mixtures</h3>
+<p>Given mixture weights <span class="math">\(\pi^{(t-1)}\)</span> and cluster parameters <span class="math">\((\theta_k^{(t-1)})_{k=1}^K\)</span> from the previous iteration, sample a new set of mixture parameters as:</p>
+<ol style="list-style-type: decimal">
+<li>Independently assign each of <span class="math">\(x_i\)</span> points to one of the <span class="math">\(K\)</span> clusters by sampling the indicator variables from the following multinomial distributions:</li>
+</ol>
+<p><span class="math">\[
+z_i^{(t)} \sim \frac{1}{Z_i} \sum_{k=1}^K \pi_k^{(t-1)} f(x_i | \theta_k^{(t-1)})\delta(z_i,k),\quad Z_i = \sum_k \pi_k^{(t-1)}f(x_i|\theta_k^{(t-1)})
+\]</span></p>
+<ol start="2" style="list-style-type: decimal">
+<li>Sample new mixture weights from the following Dirichlet distribution</li>
+</ol>
+<p><span class="math">\[
+\pi^{(t)}\sim \Dir(N_1+\alpha / K,\cdots, N_K + \alpha /K),\quad K_k = \sum_{i=1}^N \delta(z_i^{(t)},k)
+\]</span></p>
+<ol start="3" style="list-style-type: decimal">
+<li>For each of the <span class="math">\(K\)</span> clusters, independently sample from the conditional distribution implied by those observations currently assigned to that cluster</li>
+</ol>
+<p><span class="math">\[
+\theta_k^{(t)} \sim p(\theta_k | \{ x_i|z_i^{(t)=k}  \}; \lambda)
+\]</span></p>
+</div>
+</div>
+<div id="rao-blackwellized-sampling-schemes" class="section level2">
+<h2>Rao-Blackwellized sampling schemes</h2>
+<p>The algorithm is based on Rao-Blackwell’s theorem:</p>
+<p><span class="math">\[
+\newcommand{\Var}{\mbox{Var}}
+\]</span></p>
+<p><em>Theorem</em> Let <span class="math">\(x\)</span> and <span class="math">\(z\)</span> be dependent random variables, and <span class="math">\(f(x,z)\)</span> a scalar statistic. Consider the marginalized statistic <span class="math">\(\E_x[f(x,z)|z ]\)</span> which is a function solely of <span class="math">\(z\)</span>. The unconditional variance <span class="math">\(\Var_{xz}[f(x,z)]\)</span> is then related to the variance of the marginalized statistic as follows:</p>
+<p><span class="math">\[
+\begin{align}
+\Var_{xz}[f(x,z)] &amp;= \Var_z[\E[f(x,z)|z]] + \E_z[ \Var_x[f(x,z)|z]] \nonumber \\
+&amp;\geq \Var_z [  \E_x [ f(x,z|z)]] \nonumber
+\end{align}
+\]</span></p>
+<p>Given previous cluster assignments <span class="math">\(z^{(t-1)}\)</span>, sequntially sample new assignments as:</p>
+<ol style="list-style-type: decimal">
+<li><p>Sample a random permutation <span class="math">\(\ta(\cdot)\)</span> of the integers <span class="math">\(\{1,\cdots,N\}\)</span></p></li>
+<li>Set <span class="math">\(z= z^{(t-1)}\)</span>. For each <span class="math">\(i\in \{\tau(1),\cdots,\tau(N)}\)</span> sequntially resample <span class="math">\(z_i\)</span> as:</li>
+</ol>
+<ol style="list-style-type: lower-alpha">
+<li>For each of the <span class="math">\(K\)</span> clusters, determine the predictive liklihood:</li>
+</ol>
+<p><span class="math">\[
+  f_k(x_i) = p(x_i | \{x_j |z_j =k,j\neq i \}|\lambda)
+  \]</span></p>
+<ol start="2" style="list-style-type: lower-alpha">
+<li>Sample a new cluster assignment <span class="math">\(z_i\)</span> from the following multinomial distribution:</li>
+</ol>
+<p><span class="math">\[
+  z_i \sim \frac{1}{Z_i} \sum_k (N_k^{-1} + \alpha / K)f_k(x_i)\delta(z_i,k),\quad Z_i = \sum_k (N_k^{-i} + \alpha / K)f_k(x_i)
+  \]</span></p>
+<ol start="3" style="list-style-type: lower-alpha">
+<li>Updated cached sufficient statistic to reflect the assignment of <span class="math">\(x_i\)</span> to cluster <span class="math">\(z_i\)</span></li>
+</ol>
+<ol start="3" style="list-style-type: decimal">
+<li>Set <span class="math">\(z^{(t)}=z\)</span>. Optionally, mixture parameters may be sampled via the previous algorithm.</li>
+</ol>
+</div>
 </div>
 
 
