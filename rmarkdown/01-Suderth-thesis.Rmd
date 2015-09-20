@@ -1,0 +1,319 @@
+---
+title: "Notes on Bayesian non-parametrics"
+author: "Rene Welch"
+output:
+  html_document:
+    highlight: tango
+    mathjax: local
+    self_contained: no
+    theme: united
+    toc: yes
+    toc_depth: 2
+header-includes: \usepackage{amsmath}
+---
+
+$$
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Dir}{\mbox{Dir}}
+$$
+
+$$
+\newcommand{\graph}{\mathcal{G}}
+\newcommand{\edges}{\mathcal{E}}
+\newcommand{\vertices}{\mathcal{V}}
+$$
+
+
+# Basic stuff 
+
+## Exponential families
+
+The first concept are exponential families, which are families with a known form 
+and their value is characterized by sufficient statistics:
+
+\[
+p(x|\theta) = \nu(x)\exp\left\{ \sum_a \theta_a \phi_a(x) - \Phi(\theta)\right\}
+\]
+
+In the machine learning setting the functions $\phi_a$ are known as *potentials* 
+and the function $\Phi$ is defined so the density function integrates one.
+
+The parameter space is defined as 
+\[
+\Theta = \left\{\theta : |\Phi(\theta)| < \infty   \right\}
+\]
+
+The *minimal representation* is made in such a way that the potentials are 
+constant. A couple of important results on the *potentials* are:
+
+* $\frac{\partial \Phi(\theta)}{\partial \theta_a} = \E[ \phi_a(x)]$
+
+* $\frac{\partial^2 \Phi(\theta)}{\partial \theta_a \partial \theta_b} = 
+\E [\phi_a(x)\phi_b(x)] - \E[\phi_a(x)] \E [\phi_b(x)]$
+
+## Entropy, information and divergence
+
+*Shannon's entropy* is defined as
+\[
+H(p) = \int p(x)\log p(x)d\mu(x)
+\]
+
+this function is concave, continuous and maximal for uniform densities. The
+*Kullback - Leibler* divergence is defined as:
+
+\[
+D(p||q) = \int p(x)\log \frac{p(x)}{q(x)}d\mu(x)
+\]
+
+and an important application of this functions is the mutual info. between two 
+random variable $x$ and $y$:
+
+\[
+I(p_{xy}) = D(p_{xy}|| p_x p_y) = \int \int p_{xy}(x,y)\log \frac{p_{x,y}(x,y)}{p_x(x)p_y(y)}dy dx
+\]
+
+In particular, given a target density $\tilde{p}(x)$ and $p_\theta$ an exponential
+family, the approximating density that minimizes $D(\tilde{p}||p_\theta)$ has 
+canonical parameters $\hat{\theta}$ choosen to match the expected values of that 
+family's sufficient statistics:
+
+\[
+\E_{\hat{\theta}}[\phi_a(x)] = \int \phi_a(x)\tilde{p}(x)dx
+\]
+
+(the proof of this result is a direct result of optimizing $f(\theta) = D(\tilde{p} | p_\theta)$ as a function of $\theta$)
+
+Additionally if $(X_i)_{i=1}^n \sim \tilde{p}$, then the MLE $\hat{\theta}$ of the canonical parameters conincides with the projection defined above:
+
+\[
+\hat{\theta} = \arg \max_\theta \sum_i \log p(x_i | \theta) = \arg \min_\theta
+D(\tilde{p} || p_\theta) 
+\]
+
+## Learning with priors
+
+To defined a *full bayesian model* we need the use of a prior distribution, in the
+case of exponential fmailies the posterior distribution is gonna have the form:
+
+\[
+p(\theta  |\lambda ) = \exp\left\{ \sum_a \theta_a \lambda_0 \lambda_a - \lambda_0 \Phi(\theta) - \Omega (\lambda) \right\}
+\]
+
+_Proposition_ If $X_i \sim p(x | \theta )$ (an exponential family) with conjugate prior $p(\theta  |\lambda)$, then the posterior parameters are updated by he rule:
+
+\[  
+p(\theta | \bf{x},\lambda) = p(\theta | \lambda^*)
+\]
+
+where $\lambda^*_0 = \lambda_0 + N$ and $\lambda_a^* = \frac{\lambda_0 \lambda_a + \sum_i \phi_a (x_i)}{\lambda_0 + N}$
+
+## Examples of conjugate priors:
+
+A couple of typical examples are:
+
+1 - $X | \theta$ are multinomial and $\theta$ is Dirichlet, a more simple case of this example is when $K = 2$, we have the Beta - Binomial model
+
+2 - $X|\mu,\Sigma$ is normal and $\mu$ is normal and $\Sigma$ is inverse Wishart. In the case of  $X|\mu,\sigma^2$ being univariate, then $\sigma^2$ is inverse gamma, and the conjugate is *t*
+
+# Graphical models
+
+Hypergraphs $\mathcal{H} = (\mathcal{V},\mathcal{F})$ provide a mean of describing probability distributions. A *factor graph* defines the joint distribution as normalized product of local *potential functions*
+
+\[
+p(x) \propto \prod_{f \in \mathcal{F}} \psi_f(x_f)
+\]
+
+In particular we can assume that the local *potentials* are defined as exponential functions in which case:
+
+\[
+\psi_f(x_f | \theta_f) = \nu_f(x_f)\exp \left\{ \sum_{a \in \mathcal{A}_f} \theta_{fa}\phi_{fa} (x_f) \right\}
+\]
+
+on which case the joint distribution is gonna be:
+
+\[
+p(x|\theta) = \prod_f \psi_f(x_f | \theta_f) = \left(\prod_f \nu_f(x_f)\right)\exp \left\{\sum_f \sum_{a \in \mathcal{A}_f} \theta_{fa}\phi_{fa} (x_f) \right\}
+\]
+
+## Undirected graphical models
+
+This defines an undirected graphical model or Markov random field. In particular, fiven an undirected graph $\mathcal{G} = (\mathcal{V},\mathcal{E})$, let $f,g,h $ be three disjoint subsets of vertices. $h$ separates $f,g$ is every path between $f$ and $g$ passes though $h$. In which case, $x_f$ and $x_g$ are independent conditionally in $x_h$:
+
+\[
+p(x_f, x_g | x_h) = p(x_f | x_h) p(x_g | x_h)
+\]
+
+_Theorem_ (Hammersley - Cliffod) Let $\mathcal{C}$ denotes a set of cliques on an undirected graph $\mathcal{G}$.  Then, the distribution of $x$ can be defined as:
+\[
+p(x)\propto \prod_{c \in \mathcal{C}} \psi_c(x_c)
+\]
+
+## Bayesian networks
+
+Another graphical model, are the Bayesian networks, were the graph $\mathcal{G}$ is assumed to be directed and the distribution of $x$ is given by:
+
+\[
+p(x) = \prod_{i \in \mathcal{V}}p(x_i | x_{\Gamma(i)})
+\]
+
+where $\Gamma(i)$ denotes the parent of the node $x_i$, and is the empty set if it doens't have parents.
+
+## Hidden Markov models
+
+This are like bayesian networks, but with a very particular case, assume there are two temporal processes $(x_t,y_t)_{t=0}^T$, the variable $x_t$ evolve according to a first-order Markov process, and the variable $y_t$ are independent conditionally on a hidden state $x_t$:
+
+\[
+p(x,y) = p(x_0)p(y_0 | x_0) \prod_{t=1}^T p(x_t | x_{t-1})p(y_t | x_t)
+\]
+
+## Exchangeability
+
+A set of random variables are said to be exchangeable if every permutation have the same probability distribution:
+
+$$
+p(x_1,\cdots,x_n) = p(x_{\tau(1)},\cdots,x_{\tau(n)})
+$$
+
+A sequence of random variables is said to be infinitibely exchangeable is every finite combination is exchangeable
+
+_Theorem_ (De Finetti) For any infinitely exchangeable sequence of random ariable, there exists some space $\Theta$, with density $p(\theta)$ such that the joint distribution of any $N$ observartions in the sequences has a mixture representation:
+
+$$
+p(x_1,\cdots,x_n) = \int_\Theta p(\theta)\prod_i p(x_i|\theta)d\theta
+$$
+
+## Mixtures of distributions
+
+A $K$ component mixture model has the form:
+
+$$
+p(x | \pi, \theta_1,\cdots ,\theta_K) = \sum_{k=1}^K \pi_k f(x | \theta_k)
+$$
+
+Another way of viewing that model is as the sampling process:
+
+$$
+\begin{align}
+z_i &\sim \pi \nonumber \\
+x_i &\sim F(\theta_{z_i}) \nonumber
+\end{align}
+$$
+
+where the variables $z_i \in \{1,\cdots,K \}$ are unobserved and indicate to which cluster the observation belongs. Equivalently, we can represent those indicators in terms of a discrete distribution on the space $\Theta$ of cluster parameters $G(\theta ) = \sum_{k=1}^K \pi_k \delta(\theta ,\theta-k)$
+
+$$
+\begin{align} 
+\theta_i &\sim G \nonumber \\
+x_i &\sim F(\cdot | \theta_i) \nonumber
+\end{align}
+$$
+
+## Latent Dirichlet allocation
+
+Given $J$ groups of data with $N_j$ data points each. LDA assumes that the data within each group are exchangeable, and independently samples from one of $K$ latent clusters with parameters $(\theta_k)_{k=1}^K$. Leting $\pi_j$ denote the mixture weights for the $j$th group, we have:
+
+$$
+p(x_{ji}|\pi_j,\theta_1,\cdots,\theta_K) = \prod_{k=1}^K \pi_{jk}f(x_{ji}|\theta_k)
+$$
+
+In this case, the sampling process representation is:
+
+$$
+\begin{align}
+\theta_k &\sim H(\lambda) ,\quad k=1,\cdots,K \nonumber \\
+\mbox{For $j=1,\cdots,J$}, \nonumber \\
+&\quad\pi_j  \sim \Dir(\alpha) \nonumber \\
+&\quad z_{ji} \sim \pi_j,\quad j=1,\cdot,N_j \nonumber \\
+&\quad x_{ji} \sim F(\cdot | \theta_{z_{ji}}),\quad j=1,\cdot,N_j \nonumber
+\end{align}
+$$
+
+# Variational methods
+
+The basic idea is to express a statistical inference problem as an optimization one and then relax that one to get a reasonable learning algorithm.
+
+Let $q(x,\theta)$ denote an approximation to the joint posterior density $p(x,\theta|y,\lambda)$ where $y$ are the observed and $x$ the hidden variables.
+
+$$
+\begin{align}
+\log p(y|\lambda) &= \log \int_\Theta \int_\mathcal{X} p(x,y,\theta|\lambda)dx d\theta \nonumber \\
+&\geq \int_\Theta \int_\mathcal{X} q(x,\theta)\log \frac{p(x,y,\theta|\lambda)}{q(x,\theta)}dxd\theta \nonumber \\ 
+&= -D(q(x,\theta)|| p(x,\theta|y,\lambda)) + \log p(y|\lambda) \nonumber
+\end{align}
+$$
+
+That way given a family of approximation densities $\mathcal{Q}$:
+
+$$
+\hat{q}(x,\theta) = \arg \min_{q\in\mathcal{Q}} D(q(x,\theta)|| p(x,\theta|y,\lambda))
+$$
+
+Variational methods choose $\mathcal{Q}$ to be a simpler density representation for which computations are tractable.
+
+_Proposition_ Let $\graph = (\vertices,\edges)$ be a tree-structured undirected graph. Any joint distribution $p(x)$ which is Markov with respect to $\graph$ factorizes according to marginal distributions on the graph's nodes and edges:
+
+$$
+p(x) = \prod_{(i,j)\in \edges} \frac{p_{ij}(x_i,x_j)}{p_i(x_i)p_j(x_j)}\prod_{i\in\vertices}p_i(x_i)
+$$
+
+The joint entropy $H(p)$ then decomposes according to the graphical structure:
+
+$$
+H(p) = \sum_{i \in \vertices} H(p_i) - \sum_{(i,j)\in \edges}I(p_{ij})
+$$
+
+## The EM algorithm
+
+Gien a model with parameters $\theta$ and prior distribution $p(\theta | \lambda)$, we seek to estimate:
+
+$$
+\hat{\theta} = \arg\max_\theta p(\theta | y , \lambda) =\arg \max_\theta p(\theta| \lambda) \int_\mathcal{X} p(x,y|\theta)dx
+$$
+
+We derive EM using the variational framework:
+
+$$
+\log p(\theta | y , \lambda) \geq \int_\mathcal{X} q(x)\log \frac{p(x,y|\theta)}{q(x)}dx + \log p(\theta|\lambda) - \log p(y|\lambda)
+$$
+
+Considering only the part that depends on $\theta$ we get the functional:
+
+$$
+\mathcal{L}(q,\theta) = H(q)+\int_\mathcal{X} q(x)\log p(x,y|\theta)dx + \log p(\theta | \lambda)
+$$
+
+Then the EM algorithm becames the iteration from the following:
+
+$$
+\begin{align}
+q^{(t)} &=\arg \max_q \mathcal{L}(q,\theta^{(t-1)}) \nonumber \\
+\theta^{(t)} &= \arg \max_\theta \mathcal{L}(q^{(t)},\theta) \nonumber  
+\end{align}
+$$
+
+# Monte Carlo methods
+
+Let $p(x)$ denote some target density, that is difficult to analyze explicitly, but that $L$ sample $(x_l)_{l=1}^L$ are available. The desired statistics $f(x)$ can be approximated as:
+
+$$
+\begin{align}
+\E_p[f(x)] &= \int_\mathcal{X} f(x)p(x)dx \nonumber \\
+&\approx \frac{1}{L} \sum_l f(x_l) = \E_\tilde{p}[f(x)] \nonumber
+\end{align}
+$$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

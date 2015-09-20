@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+<meta name="author" content="Rene Welch" />
+
+
+<title>Notes on Bayesian non-parametrics</title>
+
+<script src="01-Suderth-thesis_files/jquery-1.11.0/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="01-Suderth-thesis_files/bootstrap-3.3.1/css/united.min.css" rel="stylesheet" />
+<script src="01-Suderth-thesis_files/bootstrap-3.3.1/js/bootstrap.min.js"></script>
+<script src="01-Suderth-thesis_files/bootstrap-3.3.1/shim/html5shiv.min.js"></script>
+<script src="01-Suderth-thesis_files/bootstrap-3.3.1/shim/respond.min.js"></script>
+
+
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img { 
+  max-width:100%; 
+  height: auto; 
+}
+</style>
+<div class="container-fluid main-container">
+
+
+<div id="header">
+<h1 class="title">Notes on Bayesian non-parametrics</h1>
+<h4 class="author"><em>Rene Welch</em></h4>
+</div>
+
+<div id="TOC">
+<ul>
+<li><a href="#basic-stuff">Basic stuff</a><ul>
+<li><a href="#exponential-families">Exponential families</a></li>
+<li><a href="#entropy-information-and-divergence">Entropy, information and divergence</a></li>
+<li><a href="#learning-with-priors">Learning with priors</a></li>
+<li><a href="#examples-of-conjugate-priors">Examples of conjugate priors:</a></li>
+</ul></li>
+<li><a href="#graphical-models">Graphical models</a><ul>
+<li><a href="#undirected-graphical-models">Undirected graphical models</a></li>
+<li><a href="#bayesian-networks">Bayesian networks</a></li>
+<li><a href="#hidden-markov-models">Hidden Markov models</a></li>
+<li><a href="#exchangeability">Exchangeability</a></li>
+<li><a href="#mixtures-of-distributions">Mixtures of distributions</a></li>
+<li><a href="#latent-dirichlet-allocation">Latent Dirichlet allocation</a></li>
+</ul></li>
+<li><a href="#variational-methods">Variational methods</a><ul>
+<li><a href="#the-em-algorithm">The EM algorithm</a></li>
+</ul></li>
+<li><a href="#monte-carlo-methods">Monte Carlo methods</a></li>
+</ul>
+</div>
+
+<p><span class="math">\[
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Dir}{\mbox{Dir}}
+\]</span></p>
+<p><span class="math">\[
+\newcommand{\graph}{\mathcal{G}}
+\newcommand{\edges}{\mathcal{E}}
+\newcommand{\vertices}{\mathcal{V}}
+\]</span></p>
+<div id="basic-stuff" class="section level1">
+<h1>Basic stuff</h1>
+<div id="exponential-families" class="section level2">
+<h2>Exponential families</h2>
+<p>The first concept are exponential families, which are families with a known form and their value is characterized by sufficient statistics:</p>
+<p><span class="math">\[
+p(x|\theta) = \nu(x)\exp\left\{ \sum_a \theta_a \phi_a(x) - \Phi(\theta)\right\}
+\]</span></p>
+<p>In the machine learning setting the functions <span class="math">\(\phi_a\)</span> are known as <em>potentials</em> and the function <span class="math">\(\Phi\)</span> is defined so the density function integrates one.</p>
+<p>The parameter space is defined as <span class="math">\[
+\Theta = \left\{\theta : |\Phi(\theta)| &lt; \infty   \right\}
+\]</span></p>
+<p>The <em>minimal representation</em> is made in such a way that the potentials are constant. A couple of important results on the <em>potentials</em> are:</p>
+<ul>
+<li><p><span class="math">\(\frac{\partial \Phi(\theta)}{\partial \theta_a} = \E[ \phi_a(x)]\)</span></p></li>
+<li><p><span class="math">\(\frac{\partial^2 \Phi(\theta)}{\partial \theta_a \partial \theta_b} = \E [\phi_a(x)\phi_b(x)] - \E[\phi_a(x)] \E [\phi_b(x)]\)</span></p></li>
+</ul>
+</div>
+<div id="entropy-information-and-divergence" class="section level2">
+<h2>Entropy, information and divergence</h2>
+<p><em>Shannon’s entropy</em> is defined as <span class="math">\[
+H(p) = \int p(x)\log p(x)d\mu(x)
+\]</span></p>
+<p>this function is concave, continuous and maximal for uniform densities. The <em>Kullback - Leibler</em> divergence is defined as:</p>
+<p><span class="math">\[
+D(p||q) = \int p(x)\log \frac{p(x)}{q(x)}d\mu(x)
+\]</span></p>
+<p>and an important application of this functions is the mutual info. between two random variable <span class="math">\(x\)</span> and <span class="math">\(y\)</span>:</p>
+<p><span class="math">\[
+I(p_{xy}) = D(p_{xy}|| p_x p_y) = \int \int p_{xy}(x,y)\log \frac{p_{x,y}(x,y)}{p_x(x)p_y(y)}dy dx
+\]</span></p>
+<p>In particular, given a target density <span class="math">\(\tilde{p}(x)\)</span> and <span class="math">\(p_\theta\)</span> an exponential family, the approximating density that minimizes <span class="math">\(D(\tilde{p}||p_\theta)\)</span> has canonical parameters <span class="math">\(\hat{\theta}\)</span> choosen to match the expected values of that family’s sufficient statistics:</p>
+<p><span class="math">\[
+\E_{\hat{\theta}}[\phi_a(x)] = \int \phi_a(x)\tilde{p}(x)dx
+\]</span></p>
+<p>(the proof of this result is a direct result of optimizing <span class="math">\(f(\theta) = D(\tilde{p} | p_\theta)\)</span> as a function of <span class="math">\(\theta\)</span>)</p>
+<p>Additionally if <span class="math">\((X_i)_{i=1}^n \sim \tilde{p}\)</span>, then the MLE <span class="math">\(\hat{\theta}\)</span> of the canonical parameters conincides with the projection defined above:</p>
+<p><span class="math">\[
+\hat{\theta} = \arg \max_\theta \sum_i \log p(x_i | \theta) = \arg \min_\theta
+D(\tilde{p} || p_\theta) 
+\]</span></p>
+</div>
+<div id="learning-with-priors" class="section level2">
+<h2>Learning with priors</h2>
+<p>To defined a <em>full bayesian model</em> we need the use of a prior distribution, in the case of exponential fmailies the posterior distribution is gonna have the form:</p>
+<p><span class="math">\[
+p(\theta  |\lambda ) = \exp\left\{ \sum_a \theta_a \lambda_0 \lambda_a - \lambda_0 \Phi(\theta) - \Omega (\lambda) \right\}
+\]</span></p>
+<p><em>Proposition</em> If <span class="math">\(X_i \sim p(x | \theta )\)</span> (an exponential family) with conjugate prior <span class="math">\(p(\theta |\lambda)\)</span>, then the posterior parameters are updated by he rule:</p>
+<p><span class="math">\[  
+p(\theta | \bf{x},\lambda) = p(\theta | \lambda^*)
+\]</span></p>
+<p>where <span class="math">\(\lambda^*_0 = \lambda_0 + N\)</span> and <span class="math">\(\lambda_a^* = \frac{\lambda_0 \lambda_a + \sum_i \phi_a (x_i)}{\lambda_0 + N}\)</span></p>
+</div>
+<div id="examples-of-conjugate-priors" class="section level2">
+<h2>Examples of conjugate priors:</h2>
+<p>A couple of typical examples are:</p>
+<p>1 - <span class="math">\(X | \theta\)</span> are multinomial and <span class="math">\(\theta\)</span> is Dirichlet, a more simple case of this example is when <span class="math">\(K = 2\)</span>, we have the Beta - Binomial model</p>
+<p>2 - <span class="math">\(X|\mu,\Sigma\)</span> is normal and <span class="math">\(\mu\)</span> is normal and <span class="math">\(\Sigma\)</span> is inverse Wishart. In the case of <span class="math">\(X|\mu,\sigma^2\)</span> being univariate, then <span class="math">\(\sigma^2\)</span> is inverse gamma, and the conjugate is <em>t</em></p>
+</div>
+</div>
+<div id="graphical-models" class="section level1">
+<h1>Graphical models</h1>
+<p>Hypergraphs <span class="math">\(\mathcal{H} = (\mathcal{V},\mathcal{F})\)</span> provide a mean of describing probability distributions. A <em>factor graph</em> defines the joint distribution as normalized product of local <em>potential functions</em></p>
+<p><span class="math">\[
+p(x) \propto \prod_{f \in \mathcal{F}} \psi_f(x_f)
+\]</span></p>
+<p>In particular we can assume that the local <em>potentials</em> are defined as exponential functions in which case:</p>
+<p><span class="math">\[
+\psi_f(x_f | \theta_f) = \nu_f(x_f)\exp \left\{ \sum_{a \in \mathcal{A}_f} \theta_{fa}\phi_{fa} (x_f) \right\}
+\]</span></p>
+<p>on which case the joint distribution is gonna be:</p>
+<p><span class="math">\[
+p(x|\theta) = \prod_f \psi_f(x_f | \theta_f) = \left(\prod_f \nu_f(x_f)\right)\exp \left\{\sum_f \sum_{a \in \mathcal{A}_f} \theta_{fa}\phi_{fa} (x_f) \right\}
+\]</span></p>
+<div id="undirected-graphical-models" class="section level2">
+<h2>Undirected graphical models</h2>
+<p>This defines an undirected graphical model or Markov random field. In particular, fiven an undirected graph <span class="math">\(\mathcal{G} = (\mathcal{V},\mathcal{E})\)</span>, let $f,g,h $ be three disjoint subsets of vertices. <span class="math">\(h\)</span> separates <span class="math">\(f,g\)</span> is every path between <span class="math">\(f\)</span> and <span class="math">\(g\)</span> passes though <span class="math">\(h\)</span>. In which case, <span class="math">\(x_f\)</span> and <span class="math">\(x_g\)</span> are independent conditionally in <span class="math">\(x_h\)</span>:</p>
+<p><span class="math">\[
+p(x_f, x_g | x_h) = p(x_f | x_h) p(x_g | x_h)
+\]</span></p>
+<p><em>Theorem</em> (Hammersley - Cliffod) Let <span class="math">\(\mathcal{C}\)</span> denotes a set of cliques on an undirected graph <span class="math">\(\mathcal{G}\)</span>. Then, the distribution of <span class="math">\(x\)</span> can be defined as: <span class="math">\[
+p(x)\propto \prod_{c \in \mathcal{C}} \psi_c(x_c)
+\]</span></p>
+</div>
+<div id="bayesian-networks" class="section level2">
+<h2>Bayesian networks</h2>
+<p>Another graphical model, are the Bayesian networks, were the graph <span class="math">\(\mathcal{G}\)</span> is assumed to be directed and the distribution of <span class="math">\(x\)</span> is given by:</p>
+<p><span class="math">\[
+p(x) = \prod_{i \in \mathcal{V}}p(x_i | x_{\Gamma(i)})
+\]</span></p>
+<p>where <span class="math">\(\Gamma(i)\)</span> denotes the parent of the node <span class="math">\(x_i\)</span>, and is the empty set if it doens’t have parents.</p>
+</div>
+<div id="hidden-markov-models" class="section level2">
+<h2>Hidden Markov models</h2>
+<p>This are like bayesian networks, but with a very particular case, assume there are two temporal processes <span class="math">\((x_t,y_t)_{t=0}^T\)</span>, the variable <span class="math">\(x_t\)</span> evolve according to a first-order Markov process, and the variable <span class="math">\(y_t\)</span> are independent conditionally on a hidden state <span class="math">\(x_t\)</span>:</p>
+<p><span class="math">\[
+p(x,y) = p(x_0)p(y_0 | x_0) \prod_{t=1}^T p(x_t | x_{t-1})p(y_t | x_t)
+\]</span></p>
+</div>
+<div id="exchangeability" class="section level2">
+<h2>Exchangeability</h2>
+<p>A set of random variables are said to be exchangeable if every permutation have the same probability distribution:</p>
+<p><span class="math">\[
+p(x_1,\cdots,x_n) = p(x_{\tau(1)},\cdots,x_{\tau(n)})
+\]</span></p>
+<p>A sequence of random variables is said to be infinitibely exchangeable is every finite combination is exchangeable</p>
+<p><em>Theorem</em> (De Finetti) For any infinitely exchangeable sequence of random ariable, there exists some space <span class="math">\(\Theta\)</span>, with density <span class="math">\(p(\theta)\)</span> such that the joint distribution of any <span class="math">\(N\)</span> observartions in the sequences has a mixture representation:</p>
+<p><span class="math">\[
+p(x_1,\cdots,x_n) = \int_\Theta p(\theta)\prod_i p(x_i|\theta)d\theta
+\]</span></p>
+</div>
+<div id="mixtures-of-distributions" class="section level2">
+<h2>Mixtures of distributions</h2>
+<p>A <span class="math">\(K\)</span> component mixture model has the form:</p>
+<p><span class="math">\[
+p(x | \pi, \theta_1,\cdots ,\theta_K) = \sum_{k=1}^K \pi_k f(x | \theta_k)
+\]</span></p>
+<p>Another way of viewing that model is as the sampling process:</p>
+<p><span class="math">\[
+\begin{align}
+z_i &amp;\sim \pi \nonumber \\
+x_i &amp;\sim F(\theta_{z_i}) \nonumber
+\end{align}
+\]</span></p>
+<p>where the variables <span class="math">\(z_i \in \{1,\cdots,K \}\)</span> are unobserved and indicate to which cluster the observation belongs. Equivalently, we can represent those indicators in terms of a discrete distribution on the space <span class="math">\(\Theta\)</span> of cluster parameters <span class="math">\(G(\theta ) = \sum_{k=1}^K \pi_k \delta(\theta ,\theta-k)\)</span></p>
+<p><span class="math">\[
+\begin{align} 
+\theta_i &amp;\sim G \nonumber \\
+x_i &amp;\sim F(\cdot | \theta_i) \nonumber
+\end{align}
+\]</span></p>
+</div>
+<div id="latent-dirichlet-allocation" class="section level2">
+<h2>Latent Dirichlet allocation</h2>
+<p>Given <span class="math">\(J\)</span> groups of data with <span class="math">\(N_j\)</span> data points each. LDA assumes that the data within each group are exchangeable, and independently samples from one of <span class="math">\(K\)</span> latent clusters with parameters <span class="math">\((\theta_k)_{k=1}^K\)</span>. Leting <span class="math">\(\pi_j\)</span> denote the mixture weights for the <span class="math">\(j\)</span>th group, we have:</p>
+<p><span class="math">\[
+p(x_{ji}|\pi_j,\theta_1,\cdots,\theta_K) = \prod_{k=1}^K \pi_{jk}f(x_{ji}|\theta_k)
+\]</span></p>
+<p>In this case, the sampling process representation is:</p>
+<p><span class="math">\[
+\begin{align}
+\theta_k &amp;\sim H(\lambda) ,\quad k=1,\cdots,K \nonumber \\
+\mbox{For $j=1,\cdots,J$}, \nonumber \\
+&amp;\quad\pi_j  \sim \Dir(\alpha) \nonumber \\
+&amp;\quad z_{ji} \sim \pi_j,\quad j=1,\cdot,N_j \nonumber \\
+&amp;\quad x_{ji} \sim F(\cdot | \theta_{z_{ji}}),\quad j=1,\cdot,N_j \nonumber
+\end{align}
+\]</span></p>
+</div>
+</div>
+<div id="variational-methods" class="section level1">
+<h1>Variational methods</h1>
+<p>The basic idea is to express a statistical inference problem as an optimization one and then relax that one to get a reasonable learning algorithm.</p>
+<p>Let <span class="math">\(q(x,\theta)\)</span> denote an approximation to the joint posterior density <span class="math">\(p(x,\theta|y,\lambda)\)</span> where <span class="math">\(y\)</span> are the observed and <span class="math">\(x\)</span> the hidden variables.</p>
+<p><span class="math">\[
+\begin{align}
+\log p(y|\lambda) &amp;= \log \int_\Theta \int_\mathcal{X} p(x,y,\theta|\lambda)dx d\theta \nonumber \\
+&amp;\geq \int_\Theta \int_\mathcal{X} q(x,\theta)\log \frac{p(x,y,\theta|\lambda)}{q(x,\theta)}dxd\theta \nonumber \\ 
+&amp;= -D(q(x,\theta)|| p(x,\theta|y,\lambda)) + \log p(y|\lambda) \nonumber
+\end{align}
+\]</span></p>
+<p>That way given a family of approximation densities <span class="math">\(\mathcal{Q}\)</span>:</p>
+<p><span class="math">\[
+\hat{q}(x,\theta) = \arg \min_{q\in\mathcal{Q}} D(q(x,\theta)|| p(x,\theta|y,\lambda))
+\]</span></p>
+<p>Variational methods choose <span class="math">\(\mathcal{Q}\)</span> to be a simpler density representation for which computations are tractable.</p>
+<p><em>Proposition</em> Let <span class="math">\(\graph = (\vertices,\edges)\)</span> be a tree-structured undirected graph. Any joint distribution <span class="math">\(p(x)\)</span> which is Markov with respect to <span class="math">\(\graph\)</span> factorizes according to marginal distributions on the graph’s nodes and edges:</p>
+<p><span class="math">\[
+p(x) = \prod_{(i,j)\in \edges} \frac{p_{ij}(x_i,x_j)}{p_i(x_i)p_j(x_j)}\prod_{i\in\vertices}p_i(x_i)
+\]</span></p>
+<p>The joint entropy <span class="math">\(H(p)\)</span> then decomposes according to the graphical structure:</p>
+<p><span class="math">\[
+H(p) = \sum_{i \in \vertices} H(p_i) - \sum_{(i,j)\in \edges}I(p_{ij})
+\]</span></p>
+<div id="the-em-algorithm" class="section level2">
+<h2>The EM algorithm</h2>
+<p>Gien a model with parameters <span class="math">\(\theta\)</span> and prior distribution <span class="math">\(p(\theta | \lambda)\)</span>, we seek to estimate:</p>
+<p><span class="math">\[
+\hat{\theta} = \arg\max_\theta p(\theta | y , \lambda) =\arg \max_\theta p(\theta| \lambda) \int_\mathcal{X} p(x,y|\theta)dx
+\]</span></p>
+<p>We derive EM using the variational framework:</p>
+<p><span class="math">\[
+\log p(\theta | y , \lambda) \geq \int_\mathcal{X} q(x)\log \frac{p(x,y|\theta)}{q(x)}dx + \log p(\theta|\lambda) - \log p(y|\lambda)
+\]</span></p>
+<p>Considering only the part that depends on <span class="math">\(\theta\)</span> we get the functional:</p>
+<p><span class="math">\[
+\mathcal{L}(q,\theta) = H(q)+\int_\mathcal{X} q(x)\log p(x,y|\theta)dx + \log p(\theta | \lambda)
+\]</span></p>
+<p>Then the EM algorithm becames the iteration from the following:</p>
+<p><span class="math">\[
+\begin{align}
+q^{(t)} &amp;=\arg \max_q \mathcal{L}(q,\theta^{(t-1)}) \nonumber \\
+\theta^{(t)} &amp;= \arg \max_\theta \mathcal{L}(q^{(t)},\theta) \nonumber  
+\end{align}
+\]</span></p>
+</div>
+</div>
+<div id="monte-carlo-methods" class="section level1">
+<h1>Monte Carlo methods</h1>
+<p>Let <span class="math">\(p(x)\)</span> denote some target density, that is difficult to analyze explicitly, but that <span class="math">\(L\)</span> sample <span class="math">\((x_l)_{l=1}^L\)</span> are available. The desired statistics <span class="math">\(f(x)\)</span> can be approximated as:</p>
+<p><span class="math">\[
+\begin{align}
+\E_p[f(x)] &amp;= \int_\mathcal{X} f(x)p(x)dx \nonumber \\
+&amp;\approx \frac{1}{L} \sum_l f(x_l) = \E_\tilde{p}[f(x)] \nonumber
+\end{align}
+\]</span></p>
+</div>
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+$(document).ready(function () {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+});
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "01-Suderth-thesis_files/mathjax-local/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
